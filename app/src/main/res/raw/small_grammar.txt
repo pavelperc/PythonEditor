@@ -1,0 +1,12 @@
+
+file_input: (NEWLINE | stmt)* ENDMARKER
+
+stmt: simple_stmt | compound_stmt
+simple_stmt: SMALL_STMT
+
+compound_stmt: if_stmt
+if_stmt: 'if' TRUE ':' suite ('elif' TRUE ':' suite)* ['else' ':' suite]
+
+suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT
+
+
