@@ -433,8 +433,8 @@ class GenericRule(
         
         
         
-        /** checks if current elementLeaf matches [id].
-         * If it matches and [text] != [checkText] - throws Exception.*/
+        /** Checks if current elementLeaf matches [id].
+         * @throws Exception If it matches and [GenericElementLeaf.text] != [checkText]*/
         fun checkById(id: Int, checkText: String): Boolean =
                 if (id == this.id && checkText != text)
                     throw Exception("Element leaf with id $id doesn't match the text $checkText. Real text is $text")

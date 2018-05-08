@@ -282,6 +282,9 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
 //        
     
     
+    // All rules are not optimized here!!!
+    
+    
     allLeaves
             .filter { it.text == "NEWLINE" }
             .also { if (it.isEmpty()) throw Exception("NEWLINE not found ") }
@@ -291,7 +294,7 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
     allLeaves
             .filter { it.text == "NAME" }
             .also { if (it.isEmpty()) throw Exception("NAME not found ") }
-            .forEach { it.gContext = GenericContextName(it) }
+            .forEach { it.gContext = GenericContextName(it, Palette.Lavender.color, Palette.Beige.color) }
     
     
     allLeaves
@@ -331,6 +334,10 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
             .also { if (it.isEmpty()) throw Exception("stmt not found ") }
             .forEach { it.gContext = GenericContextStmt(it) }
     
+    
+    ruleMap["expr_stmt"]!!.leaves
+            .first { it.checkById(176, "=") }
+            .also { leaf -> leaf.gContext = GenericContextAssign(leaf) }
     
     
     if (drawGV) {

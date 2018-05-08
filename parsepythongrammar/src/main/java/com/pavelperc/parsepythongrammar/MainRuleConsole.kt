@@ -15,9 +15,6 @@ class MainRuleConsole(
     /** Счётчик файлов graphviz */
     private var gvFileCounter = 0
     
-    /** In console realization cursor never points at indent or dedent*/
-    var cursor: ElementLeaf? = null
-    
     
     /** Формирует форматированную строку */
     private val chainString: String
@@ -117,6 +114,12 @@ class MainRuleConsole(
             if (gContext.defaultRealizedToken != null) {
                 chosen!!.realizedToken = gContext.defaultRealizedToken
             } else {
+                val ctx = chosen!!.context
+                val suggestions = gContext.quickHints(ctx).map { it.nameForButton }
+                if (suggestions.isNotEmpty()) {
+                    System.err.println("Some suggestions: $suggestions")
+                }
+                
                 askWhile("Enter your value for $chosen:") {
                     chosen!!.realizedToken = it
                     true
@@ -127,7 +130,7 @@ class MainRuleConsole(
         // End of input into serr
         Thread.sleep(100)
         
-        build(chosen!!)
+        build(trueCursor, chosen!!)
         
         Thread.sleep(100)
         
@@ -149,18 +152,6 @@ class MainRuleConsole(
         
     }
     
-    
-    /** finds alternatives with right cursor*/
-    fun findAlternatives() {
-        // find right pointer for indent or dedent
-        val trueCursor = cursor?.gContext?.let {
-            if (it is GenericContextNewline)
-                it.getLastIndentOrDedentToken(cursor!!.context)// nullable
-            else null
-        } ?: cursor
-        
-        findAlternatives(trueCursor)
-    }
     
     private fun moveCursor() {
         var flag = true

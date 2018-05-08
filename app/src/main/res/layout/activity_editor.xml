@@ -54,31 +54,38 @@
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <EditText
-            android:id="@+id/etInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ems="10"
-            android:enabled="false"
-            android:hint="enter text"
-            android:inputType="textShortMessage"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:visibility="gone"/>
-
         <HorizontalScrollView
             android:id="@+id/svButtons"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="100dp">
+            >
 
             <LinearLayout
-                android:id="@+id/llButtons"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:orientation="horizontal"
-                android:padding="8dp"/>
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/llQuickHints"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:background="@android:color/holo_green_light"
+                    android:minHeight="8dp"
+                    android:minWidth="16dp"
+                    android:orientation="horizontal"
+                    android:visibility="gone"
+                    tools:layout_width="wrap_content">
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:padding="8dp"/>
+            </LinearLayout>
         </HorizontalScrollView>
+
     </LinearLayout>
 
 </android.support.constraint.ConstraintLayout>

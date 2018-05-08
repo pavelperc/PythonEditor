@@ -46,16 +46,19 @@ abstract class MainRule(gRule: GenericRule, ruleMap: Map<String, GenericRule>) :
      *
      */
     @Synchronized
-    fun findAlternatives(cursor: ElementLeaf?) {
+    fun findAlternatives() {
         // if the cursor is null, then it is to the left of the first Element
         
         /** first element, which will be proposed to choose.
          * may be null when [ElementLeaf.findNewCurrent] returns null */
-        val currentElement =
-                if (cursor == null)
-                    setupFirstElement()
-                else
-                    cursor.findNewCurrent()
+        
+//        log?.println("in findAlternatives: cursor = $cursor, trueCursor = $trueCursor")
+        val currentElement = trueCursor.let {
+            if (it == null)
+                setupFirstElement()
+            else
+                it.findNewCurrent()
+        }
         
         
         currentElement?.apply {
@@ -72,10 +75,32 @@ abstract class MainRule(gRule: GenericRule, ruleMap: Map<String, GenericRule>) :
     abstract fun ask(alternatives: List<ElementLeaf>)
     
     
-    /** Updates tree.
-     * */
-    fun build(chosen: ElementLeaf) {
+    /** In any realization cursor never points at indent or dedent.
+    \     * Points only at VISIBLE element.*/
+    var cursor: ElementLeaf? = null
+    
+    /** Finds right pointer for indent or dedent unlike [cursor] does.*/
+    val trueCursor
+        get() = cursor?.gContext?.let {
+            if (it is GenericContextNewline)
+                it.getLastIndentOrDedentToken(cursor!!.context)// nullable
+            else null
+        } ?: cursor
+    
+    
+    /** Updates tree. Connects [leftLeaf] with [chosen]*/
+    fun build(leftLeaf: ElementLeaf?, chosen: ElementLeaf) {
+        log?.println("----------IN BUILD----------")
+        
         chosen.updateAllChosen()
+        
+//        val leftLeaf = trueCursor
+        
+        // connect with previous
+        leftLeaf?.rightLeaf = chosen;
+        chosen.leftLeaf = leftLeaf;
+        log?.println("In Build: connected '$chosen' with '$leftLeaf'")
+        
         
         chosen.gContext.also {
             if (it is GenericContextLeaf)

@@ -318,11 +318,6 @@ open class RealizedRule(
                 edge.style = "dotted"
             }
             
-            //            if (!element.isEmpty) {
-            //                element.toGv(nodes, edges, elId);
-            //            }
-            
-            
             element.toGv(graph, node, onlyChosen)
         }
         
@@ -715,6 +710,9 @@ open class RealizedRule(
                 
                 field = value
             }
+        
+        var leftLeaf: ElementLeaf? = null
+        var rightLeaf: ElementLeaf? = null
         
         
 //        var onUpdateRealizedToken: (()->Unit)? = null

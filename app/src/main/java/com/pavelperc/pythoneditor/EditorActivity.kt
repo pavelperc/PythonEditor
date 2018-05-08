@@ -69,6 +69,10 @@ class EditorActivity : AppCompatActivity() {
             
             mainRuleGraphics = MainRuleGraphics(this, ruleMap["file_input"]!!, ruleMap)
             
+            runOnUiThread {
+                llCode.addView(mainRuleGraphics.codeEditorLayout)
+            }
+            
             mainRuleGraphics.findAlternatives()
         }
                 .apply { isDaemon = true }
@@ -175,12 +179,14 @@ class EditorActivity : AppCompatActivity() {
         
         // hide keyboard
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(etInput.windowToken, 0)
+        imm.hideSoftInputFromWindow(llCode.windowToken, 0)
         keyboardIsHidden = true
         
+        llQuickHints.visibility = View.GONE
+        
         // show buttons
-        svButtons.postDelayed({
-            svButtons.visibility = View.VISIBLE
+        llButtons.postDelayed({
+            llButtons.visibility = View.VISIBLE
             
             svCode.postDelayed({
                 svCode.fullScroll(ScrollView.FOCUS_DOWN)
@@ -194,36 +200,20 @@ class EditorActivity : AppCompatActivity() {
             return
         
         // hide buttons
-        svButtons.visibility = View.GONE
-//        etInput.performClick()
-//        etInput.performClick()
+        llButtons.visibility = View.GONE
         
         // show keyboard
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
         keyboardIsHidden = false
-    }
     
-    
-    /** String, which is filled after the enter key is pressed on [etInput],
-     * and string, which method [readLine] is waiting for to be not null.*/
-    @Volatile
-    private var lastLine: String? = null
-    
-    
-    @Synchronized
-    fun readLine(): String {
-        while (lastLine == null)
-            continue
+        llQuickHints.visibility = View.VISIBLE
         
-        val saved = lastLine!!
-        lastLine = null
-        return saved
     }
     
     
-    /** Saved main menu with high level buttons.*/
-    var lastButtonSheet: LinearLayout? = null
+//    /** Saved main menu with high level buttons.*/
+//    var lastButtonSheet: LinearLayout? = null
     
     
     override fun onBackPressed() {

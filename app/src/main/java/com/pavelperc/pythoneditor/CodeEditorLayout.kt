@@ -8,9 +8,9 @@ import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.pavelperc.parsepythongrammar.GenericContextId
-import com.pavelperc.parsepythongrammar.GenericContextNewline
+import com.pavelperc.parsepythongrammar.*
 import com.pavelperc.parsepythongrammar.RealizedRule.ElementLeaf
+import kotlinx.android.synthetic.main.activity_editor.*
 import org.jetbrains.anko.*
 
 
@@ -69,7 +69,7 @@ class CodeEditorLayout(
      * [prevView] is either [TokenEditText] or [TextViewBeforeFirst].
      * [layout] must contain [prevView].
      *
-     * This method calls [MainRuleGraphics.findAlternatives] in separate thread.*/
+     * This method NOT calls [MainRuleGraphics.findAlternatives] in separate thread.*/
     fun changeCursor(prevView: View, layout: LineLayout) {
         
         mainRuleGraphics.cursor = if (prevView is TokenEditText) prevView.leaf else null
@@ -96,7 +96,7 @@ class CodeEditorLayout(
         // if text realized token exists or can be entered automatically et fills itself with it
         // else enables editing mode.
         // to check if et is filled you can call isFilled property
-        val etToken = TokenEditText(leaf)
+        val etToken = TokenEditText(leaf, mainRuleGraphics.trueCursor)
         leafToEt[leaf] = etToken
         
         
@@ -104,7 +104,7 @@ class CodeEditorLayout(
         
         if (leaf.gContext is GenericContextNewline) {
             
-            mainRuleGraphics.build(leaf)
+            mainRuleGraphics.build(mainRuleGraphics.trueCursor, leaf)
             etToken.updateRealizedToken()
             
             val newLineLayout = LineLayout()
@@ -121,12 +121,18 @@ class CodeEditorLayout(
         } else {
             cursorLayout.addView(etToken, cursorPosition + 1)
             leafToLL[leaf] = cursorLayout
+            
+            
+            // changeCursor and build should always be together OR NOT
+            // because for late build cursor should be already changed
+            val savedTrueCursor = mainRuleGraphics.trueCursor
             changeCursor(etToken, cursorLayout)
             
-            
             if (etToken.isFilled) {
+                
+                // TODO simplify savedTrueCursor and methods changeCursor, build
                 Thread() {
-                    mainRuleGraphics.build(leaf)
+                    mainRuleGraphics.build(savedTrueCursor, leaf)
                     mainRuleGraphics.findAlternatives()
                 }.start()
             }
@@ -184,8 +190,9 @@ class CodeEditorLayout(
     
     /** if realized token exists or can be entered automatically etToken fills itself with it,
      * else it enables editing mode.
-     * To check if etToken is filled you can call [isFilled] property*/
-    inner class TokenEditText(val leaf: ElementLeaf)
+     * To check if etToken is filled you can call [isFilled] property.
+     * @param leftLeaf Is needed for late build in [onEditorAction]*/
+    inner class TokenEditText(val leaf: ElementLeaf, private val leftLeaf: ElementLeaf?)
         : EditText(activity), OnClickListener, OnLongClickListener, TextView.OnEditorActionListener {
         
         override fun onClick(v: View?) {
@@ -227,6 +234,14 @@ class CodeEditorLayout(
                 
                 try {
                     leaf.realizedToken = text.toString()
+                    
+                    // if we entered the name first time nothing will happen.
+                    // But if we are in change mode - update... will find '=' on the right 
+                    // and will update the storage of stmt above
+                    if (leaf.gContext is GenericContextName) {
+                        (leaf.gContext as GenericContextName).updateAssignmentInStmt(leaf.context)
+                    }
+                    
                 } catch (e: Exception) {
                     activity.toast("Invalid input:\n${e.localizedMessage}")
                     return false
@@ -234,21 +249,30 @@ class CodeEditorLayout(
 
 //                activity.toast("Successful input")
                 
-                Thread {
-                    mainRuleGraphics.build(leaf)
+                Thread() {
+                    mainRuleGraphics.build(leftLeaf, leaf)
                     mainRuleGraphics.findAlternatives()
                 }.start()
+                
                 
                 lockEditing()
                 
                 return true
+            } else {
+                
+                // TODO filter inappropriate hints after key entering or return them back on backspace
+//                val forRemoval = activity.llQuickHints.childrenSequence()
+//                        .map { it as ButtonQuickHint }
+//                        .filterNot { it.content.nameForButton.startsWith(this.text) }
+//                forRemoval.forEach { activity.llQuickHints.r }
+                
             }
             return false
         }
         
         
         private val savedKeyListener = keyListener
-        private val savedBackground = background
+//        private val savedBackground = background
         
         
         /** False if realized token was assigned in initialization and can't be changed by user.
@@ -340,7 +364,33 @@ class CodeEditorLayout(
             
             requestFocus()
             
+            activity.llQuickHints.removeAllViews()
+            
+            val gContext = leaf.gContext
+            if (gContext is GenericContextId) {
+                val buttons = gContext.quickHints(leaf.context).map { ButtonQuickHint(it) }
+                buttons.forEach { activity.llQuickHints.addView(it) }
+            }
+            
+            
             activity.showKeyboard()
+            
+        }
+        
+        inner class ButtonQuickHint(content: ButtonContent)
+            : ColoredButton(content, activity) {
+            
+            init {
+                minHeight /= 2
+                minimumHeight /= 2
+            }
+            
+            /** On hint click.*/
+            override fun onClick(v: View?) {
+                this@TokenEditText.setText(content.nameForButton)
+                
+                onEditorAction(null, EditorInfo.IME_ACTION_GO, null)
+            }
         }
         
         fun lockEditing() {

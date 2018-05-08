@@ -25,7 +25,10 @@ open class GenericContextLeaf(override val gElement: GenericElementLeaf) : Gener
 }
 
 /**
- * Определяет действия с лексемами([ElementType.ID]): NEWLINE, STRING, ID ...
+ * Defines actions with lexemes ([ElementType.ID]): NEWLINE, STRING, ID ...
+ * Lexeme realization may have [defaultRealizedToken]
+ * or be entered manually, with checking by [checkPattern].
+ * Also for manual input some [quickHints] can be retrieved.
  */
 open class GenericContextId(
         gElement: GenericElementLeaf,
@@ -38,6 +41,9 @@ open class GenericContextId(
      * @param leaf Лист, у которого заполнен [ElementLeaf.realizedToken]*/
     open fun checkPattern(value: String): Boolean = true
     
+    
+    /** List of hints. Should be already sorted.*/
+    open fun quickHints(ctx: Context): List<ButtonContent> = emptyList()
     
 }
 
@@ -117,8 +123,8 @@ class GenericContextNewline(element: GenericElementLeaf) : GenericContextId(elem
         if (context.gContext !is GenericContextNewline)
             throw Exception("tried to update realized token in not newline leaf")
         
-        context.element.realizedToken = PREFIX_SPACE + 
-                ( " " + "-".repeat(INDENT_SIZE)).repeat(getIndentCount(context)).trimEnd()
+        context.element.realizedToken = PREFIX_SPACE +
+                (" " + "-".repeat(INDENT_SIZE)).repeat(getIndentCount(context)).trimEnd()
     }
 }
 
@@ -140,51 +146,97 @@ class GenericContextIndentOrDedent(
     
 }
 
-
+/** Context for '=' token.*/
 class GenericContextAssign(element: GenericElementLeaf) : GenericContextLeaf(element) {
     
     override fun onChoose(context: ContextLeaf) {
         
-        val name = context.leftLeafStep.go()?.element
+        val ctxName = context.leftLeafStep.go()
+        val gCtxName = ctxName?.gContext
         
-        if (name == null || name.gElement.text != "NAME")
-            throw Exception("not found name before assign. found: $name")
+        if (ctxName == null || gCtxName !is GenericContextName)
+            throw Exception("not found name before assign. found: $ctxName")
         
-        
-        // stmt ctx and generic stmt ctx
-        val (stmtCtx, gStmtCtx) = context.upStep.goTyped<GenericContextStmt>()
-                ?: throw Exception("No stmt above assign")
-        
-        
-        gStmtCtx.putAssignment(stmtCtx, name.realizedToken!!)
+        gCtxName.updateAssignmentInStmt(ctxName)
         
     }
 }
 
 
 /**
- * Определяет действия с именами переменных, функций и классов
+ * Defines actions with names of variables, functions or classes.
  */
-class GenericContextName(element: GenericElementLeaf) : GenericContextId(element) {
+class GenericContextName(
+        element: GenericElementLeaf,
+        val colorForFunc: Int,
+        val colorForVar: Int
+) : GenericContextId(element) {
     
-    val initialFuncs = listOf("print", "len", "int", "float")
+    private val defaultFuncs = listOf("print", "len", "int", "input", "float")
+    
     
     override fun checkPattern(value: String): Boolean {
         val regex = Regex("^[a-zA-Z_\$][a-zA-Z_\$0-9]*\$")
         return value.matches(regex)
     }
     
+    
     /** get all appropriate variables for this context */
-    fun getVariables(context: Context) {
+    private fun getVariables(context: Context): List<String> {
         // get context and generic context of stmt
         val (stmt, stmtGeneric) = context.upStep.goTyped<GenericContextStmt>()
                 ?: throw Exception("Name without stmt above.")
+        
+        return stmtGeneric.getAssignmentsLeft(stmt)
+    }
+    
+    private class ButtonContentImpl(
+            override val groupingTagForButton: GroupingTag,
+            override val nameForButton: String
+    ) : ButtonContent
+    
+    
+    override fun quickHints(ctx: Context): List<ButtonContent> {
+        val funcTag = GroupingTag("func", colorForFunc, 2)
+        val varTag = GroupingTag("var", colorForFunc, 1)
+        
+        return (defaultFuncs.map { ButtonContentImpl(funcTag, it) }
+                + getVariables(ctx).map { ButtonContentImpl(varTag, it) })
+    }
+    
+//    private var Context.isAssignment: Boolean
+//        get() = this.storage.getOrDefault("isAssignment", false) as Boolean
+//        set(value) {
+//            storage["isAssignment"] = value
+//        }
+//    
+//    /** Sets flag that current name is placed before assign.
+//     * Should be invoked in [GenericContextAssign.onChoose]*/
+//    fun setAsAssignment(ctx: Context, value: Boolean = true) {
+//        ctx.isAssignment = value
+//    }
+    
+    /** If it is placed before assign, updates assignment in stmt above*/
+    fun updateAssignmentInStmt(ctx: ContextLeaf) {
+        
+        if (ctx.rightLeafStep.go()?.gContext !is GenericContextAssign) {
+            log?.println("in updateAssign for NAME: not found '=' at the right of $ctx but found ${ctx.rightLeafStep.go()}")
+            return
+        }
+        
+        // stmt ctx and generic stmt ctx
+        val (stmtCtx, gStmtCtx) = ctx.upStep.goTyped<GenericContextStmt>()
+                ?: throw Exception("No stmt above name before assign")
+        
+        
+        gStmtCtx.putAssignment(stmtCtx, ctx.element.realizedToken!!)
+        
+        log?.println("in updateAssign for NAME: succeed}")
+    
     }
 }
 
-/**
- * Определяет действия с числами
- */
+/** Defines actions with numbers.*/
 class GenericContextNumber(element: GenericElementLeaf) : GenericContextId(element) {
     
     override fun checkPattern(value: String): Boolean {
@@ -207,9 +259,8 @@ class GenericContextString(element: GenericElementLeaf) : GenericContextId(eleme
 
 class GenericContextStmt(element: GenericElement) : GenericContext(element) {
     
-    
     private var Context.assigned: String?
-        get() = storage["assigned"]?.let { it as String }
+        get() = storage["assigned"] as String?
         set(value) {
             if (gContext !is GenericContextStmt)
                 throw Exception("put assignment into non stmt context")
@@ -221,18 +272,38 @@ class GenericContextStmt(element: GenericElement) : GenericContext(element) {
             }
         }
     
+    /** Adds variable name from assignment (like 'x' for x = 5).
+     * Only one assignment can be stored in stmt.*/
     fun putAssignment(ctx: Context, name: String) {
         ctx.assigned = name
     }
-
-//    fun getAssignmentsLeft(context: Context): List<String> {
-//        val left = context.getLeftNeighbors()
-//        
-//        return left
-//                .filter { assignedTag in it.storage }
-//                .map { it.storage[assignedTag] as String }
-//        
-//    }
+    
+    fun getAssignmentsLeft(context: Context): List<String> {
+        val ans = mutableListOf<String>()
+        
+        
+        // trying to call recursive for upper level
+        val upper = context.upStep.goTyped<GenericContextStmt>()
+                ?.let { (ctx, gCtxStmt) -> gCtxStmt.getAssignmentsLeft(ctx) }
+        
+        if (upper != null) {// we are not on the top level stmts
+            ans += upper
+            // trying to get nearest stmts on the left
+            ans += context.leftStep.asTypedSequence<GenericContextStmt>()
+                    .map { it.first.assigned }
+                    .filter { it != null }
+                    .map { it as String }
+                    .toList()
+        } else {// we are on the top. trying to jump left
+            ans += context.jumpLeftStep.asTypedSequence<GenericContextStmt>()
+                    .map { it.first.assigned }
+                    .filter { it != null }
+                    .map { it as String }
+                    .toList()
+        }
+        
+        return ans
+    }
 }
 
 class GenericContextExpr(gElement: GenericElement) : GenericContext(gElement) {

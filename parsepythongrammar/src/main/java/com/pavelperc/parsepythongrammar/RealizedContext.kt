@@ -21,6 +21,7 @@ abstract class Context(open val element: Element) {
     val rightStep: Step get() = RightStep(this)
     val downLeftStep: Step get() = DownLeftStep(this)
     val downRightStep: Step get() = DownRightStep(this)
+    val jumpLeftStep: Step get() = JumpLeftStep(this)
     
     class UpStep(ctx: Context) : Step(ctx) {
         override fun Context.oneStep(): Context? =
@@ -83,7 +84,7 @@ abstract class Context(open val element: Element) {
                 } else
                     null
     }
-
+    
 //    /** Returns the context of next left element in current depth level of the tree
 //     * (or null if it doesn't exist).
 //     * The returned element will be definitely realized.*/
@@ -112,7 +113,20 @@ abstract class Context(open val element: Element) {
 //                                        .last { it.realizedElements.size > 0 }.realizedElements.last().context
 //                            }
 //                        }
-//    
+    
+    class JumpLeftStep(ctx: Context) : Step(ctx) {
+        override fun Context.oneStep(): Context? =
+                this.leftStep.go() ?: run {
+                    // move left in upper level of the tree while we can't return down to this level of tree
+                    var leftAbove = upStep.go()?.oneStep()// recursive call for upper element
+                    while (leftAbove != null && leftAbove.element is RealizedRule.ElementLeaf) {
+                        leftAbove = leftAbove.oneStep()
+                    }
+                    // here leftAbove is either null or context of ElementNode with realized concs
+                    leftAbove?.downRightStep?.go()
+                }
+    }
+
 
 //    inline fun <reified T : GenericContext> jumpLeftTyped(): Context? {
 //        var left = jumpLeft()
@@ -138,10 +152,25 @@ abstract class Context(open val element: Element) {
 //        }
 //    }
     
+    /** Finds first realized leaf on the right.*/
+    class RightLeafStep(ctx: ContextLeaf) : StepLeaf(ctx) {
+        override fun Context.oneStep(): ContextLeaf? {
+            
+            return (this as? ContextLeaf)?.element?.rightLeaf?.context
+            
+        }
+    }
     
     /** Finds first realized leaf on the left.*/
     class LeftLeafStep(ctx: ContextLeaf) : StepLeaf(ctx) {
         override fun Context.oneStep(): ContextLeaf? {
+            
+            // return saved leftLeaf!!!
+            if (this is ContextLeaf) {
+                return this.element.leftLeaf?.context
+            }
+            
+            
             var curr: Context = this
             
             // up
@@ -228,7 +257,7 @@ abstract class Context(open val element: Element) {
     abstract class StepLeaf(override val ctx: ContextLeaf) : Step(ctx) {
         
         /**One step in a given direction.*/
-        protected abstract override fun Context.oneStep(): ContextLeaf?
+        abstract override fun Context.oneStep(): ContextLeaf?
         
         /** public wrapper of [oneStep]. Returns [ContextLeaf] of next step.*/
         override fun go(): ContextLeaf? = (super.go() as ContextLeaf?)
@@ -254,6 +283,8 @@ abstract class Context(open val element: Element) {
 
 class ContextLeaf(override val element: ElementLeaf) : Context(element) {
     val leftLeafStep: StepLeaf get() = LeftLeafStep(this)
+    val rightLeafStep: StepLeaf get() = RightLeafStep(this)
+    
 }
 
 class ContextNode(override val element: ElementNode) : Context(element) {
