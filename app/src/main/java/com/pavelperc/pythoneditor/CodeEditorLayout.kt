@@ -381,8 +381,9 @@ class CodeEditorLayout(
             : ColoredButton(content, activity) {
             
             init {
-                minHeight /= 2
-                minimumHeight /= 2
+                minHeight = 0
+                minimumHeight = 0
+                padding = activity.dip(4)
             }
             
             /** On hint click.*/

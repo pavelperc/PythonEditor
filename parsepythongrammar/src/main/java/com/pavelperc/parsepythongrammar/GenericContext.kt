@@ -173,6 +173,7 @@ class GenericContextName(
 ) : GenericContextId(element) {
     
     private val defaultFuncs = listOf("print", "len", "int", "input", "float")
+    private val defaultVars = listOf("self", "lst", "result", "some_var")
     
     
     override fun checkPattern(value: String): Boolean {
@@ -198,10 +199,17 @@ class GenericContextName(
     
     override fun quickHints(ctx: Context): List<ButtonContent> {
         val funcTag = GroupingTag("func", colorForFunc, 2)
-        val varTag = GroupingTag("var", colorForFunc, 1)
+        val varTag = GroupingTag("var", colorForVar, 1)
+        val defVarTag = GroupingTag.defaultTag
         
-        return (defaultFuncs.map { ButtonContentImpl(funcTag, it) }
-                + getVariables(ctx).map { ButtonContentImpl(varTag, it) })
+        val defFuncContent = defaultFuncs.map { ButtonContentImpl(funcTag, it) }
+        val defVarContent = defaultVars.map { ButtonContentImpl(defVarTag, it) }
+        
+        val varContent = getVariables(ctx).map { ButtonContentImpl(varTag, it) }
+                .distinct()
+        
+        // JUST SORT MANUALLY BY PRIORITY
+        return (varContent + defFuncContent + defVarContent)
     }
     
 //    private var Context.isAssignment: Boolean

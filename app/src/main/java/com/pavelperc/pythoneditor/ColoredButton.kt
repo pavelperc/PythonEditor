@@ -31,9 +31,9 @@ abstract class ColoredButton(val content: ButtonContent, activity: Activity)
         
         // only one of this assignments doesn't work for some reason
         minHeight = activity.dip(40)
-        minWidth = activity.dip(60)
-        
         minimumHeight = activity.dip(40)
+        
+        minWidth = activity.dip(60)
         minimumWidth = activity.dip(60)
         
         padding = activity.dip(8)
