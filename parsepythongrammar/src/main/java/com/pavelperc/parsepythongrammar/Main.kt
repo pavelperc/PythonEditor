@@ -5,15 +5,7 @@ import java.io.FileReader
 /**
  * Created by pavel on 06.01.2018.
  */
-
-
 fun main(args: Array<String>) {
-    
-    println("Working Directory = ${System.getProperty("user.dir")}")
-    val grammar = FileReader("app/src/main/res/raw/full_grammar.txt").readText()
-    
-    println("read grammar: size=${grammar.length}")
-    println()
     
     log = object : Log {
         override fun println(str: Any) {
@@ -21,10 +13,25 @@ fun main(args: Array<String>) {
         }
     }
     
+    println("Working Directory = ${System.getProperty("user.dir")}")
+//    val grammar = FileReader("app/src/main/res/raw/full_grammar.txt").readText()
     
-    val ruleMap = setupFullGrammar(grammar, true, true)
-//    val ruleMap = setupSmallGrammar(grammar, true, true)
+//    println("read grammar: size=${grammar.length}")
+//    println()
     
+    
+    
+//    val ruleMap = setupFullGrammar(
+//            FileReader("app/src/main/res/raw/full_grammar.txt").readText(),
+//            true,
+//            true
+//    )
+    
+    val ruleMap = setupSmallGrammar(
+            FileReader("app/src/main/res/raw/small_grammar.txt").readText(),
+            true,
+            true
+    )
     
 //    for (rule in ruleMap.values) {
 //        println(rule.toString())
@@ -34,12 +41,13 @@ fun main(args: Array<String>) {
     println()
     
     
-    val file_input = MainRuleConsole(ruleMap["file_input"]!!, ruleMap)
+    val file_input = MainRuleConsole(ruleMap["stmt"]!!, ruleMap)
     
     file_input.findAlternatives()
 }
 
-
+/** Enum with colors. Color can be created from [colorString] like #FFFFFF
+ * and retrieved from property [color] as int*/
 enum class Palette(colorString: String) {
 
 
@@ -77,9 +85,10 @@ enum class Palette(colorString: String) {
     White("#FFFFFF"),
     Black("#000000");
     
-    
+    /** Color converted to integer in hex format 0xAARRGGBB*/
     val color: Int = parseColor(colorString)
     
+    /** Was copied from android Color class*/
     private fun parseColor(colorString: String): Int {
         if (colorString[0] == '#') {
             // Use a long to avoid rollovers on #ffXXXXXX
@@ -359,12 +368,12 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
 
 
 /**
- * Small grammar for debug
+ * Small grammar for debug.
  */
 fun setupSmallGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boolean): MutableMap<String, GenericRule> {
     val ruleMap = MyVisitor.generateRuleMap(grammar)
     
-    val allLeaves = ruleMap.values.flatMap { it.leaves.asIterable() }.toSet()
+//    val allLeaves = ruleMap.values.flatMap { it.leaves.asIterable() }.toSet()
     
     
     if (drawGV) {

@@ -5,31 +5,40 @@ import com.pavelperc.parsepythongrammar.RealizedRule.ElementLeaf
 import com.pavelperc.parsepythongrammar.RealizedRule.ElementNode
 
 /**
- * Несёт функцию сбора контекстов слева и сверху, ориентированию по графу.
- * Предполагается, что все конкретные действия описываются в GenericContext
+ * It is responsible for navigating through the syntax tree. (Mostly amoung Chosen elements).
+ * Also it contains [storage] with some data, special for its [element].
+ * It is supposed that all concrete actions are described in [GenericContext].
  */
 abstract class Context(open val element: Element) {
     
+    /** It is a map: tag -> some raw data.
+     * Concrete [GenericContext] objects can take or put here whatever they want.*/
     val storage = mutableMapOf<String, Any>()
     
     val gContext: GenericContext?
         get() = element.gElement.gContext
     
-    
+    /** Step object, which can go to upper levels of tree.*/
     val upStep: Step get() = UpStep(this)
+    /** Step object, which can go left in neighbour conc or rep.*/
     val leftStep: Step get() = LeftStep(this)
+    /** Step object, which can go right in neighbour conc or rep.*/
     val rightStep: Step get() = RightStep(this)
+    /** Step object, which can go to the left realized child.*/
     val downLeftStep: Step get() = DownLeftStep(this)
+    /** Step object, which can go to the right realized child.*/
     val downRightStep: Step get() = DownRightStep(this)
+    /** Step object, which can go left even to different [Element.fatherElement] 
+     * (another branch of the tree)*/
     val jumpLeftStep: Step get() = JumpLeftStep(this)
     
-    class UpStep(ctx: Context) : Step(ctx) {
+    private class UpStep(ctx: Context) : Step(ctx) {
         override fun Context.oneStep(): Context? =
                 element.fatherElement?.context
     }
     
     
-    class LeftStep(ctx: Context) : Step(ctx) {
+    private class LeftStep(ctx: Context) : Step(ctx) {
         override fun Context.oneStep(): Context? =
                 element.run {
                     if (positionInFather > 0)
@@ -47,7 +56,7 @@ abstract class Context(open val element: Element) {
                 }
     }
     
-    class RightStep(ctx: Context) : Step(ctx) {
+    private class RightStep(ctx: Context) : Step(ctx) {
         override fun Context.oneStep(): Context? =
                 element.run {
                     if (positionInFather < father.realizedElements.size - 1)
@@ -65,7 +74,7 @@ abstract class Context(open val element: Element) {
                 }
     }
     
-    class DownLeftStep(ctx: Context) : Step(ctx) {
+    private class DownLeftStep(ctx: Context) : Step(ctx) {
         override fun Context.oneStep(): Context? =
                 if (this is ContextNode) {
                     element.alteration.chosen?.repetitions
@@ -75,7 +84,7 @@ abstract class Context(open val element: Element) {
                     null
     }
     
-    class DownRightStep(ctx: Context) : Step(ctx) {
+    private class DownRightStep(ctx: Context) : Step(ctx) {
         override fun Context.oneStep(): Context? =
                 if (this is ContextNode) {
                     element.alteration.chosen?.repetitions
@@ -114,7 +123,7 @@ abstract class Context(open val element: Element) {
 //                            }
 //                        }
     
-    class JumpLeftStep(ctx: Context) : Step(ctx) {
+    private class JumpLeftStep(ctx: Context) : Step(ctx) {
         override fun Context.oneStep(): Context? =
                 this.leftStep.go() ?: run {
                     // move left in upper level of the tree while we can't return down to this level of tree
@@ -152,57 +161,19 @@ abstract class Context(open val element: Element) {
 //        }
 //    }
     
-    /** Finds first realized leaf on the right.*/
-    class RightLeafStep(ctx: ContextLeaf) : StepLeaf(ctx) {
-        override fun Context.oneStep(): ContextLeaf? {
-            
-            return (this as? ContextLeaf)?.element?.rightLeaf?.context
-            
-        }
-    }
-    
-    /** Finds first realized leaf on the left.*/
-    class LeftLeafStep(ctx: ContextLeaf) : StepLeaf(ctx) {
-        override fun Context.oneStep(): ContextLeaf? {
-            
-            // return saved leftLeaf!!!
-            if (this is ContextLeaf) {
-                return this.element.leftLeaf?.context
-            }
-            
-            
-            var curr: Context = this
-            
-            // up
-            
-            while (curr.leftStep.go() == null) {
-                curr = curr.upStep.go() ?: return null
-            }
-            
-            // left
-            
-            curr = curr.leftStep.go()!!
-            
-            // down
-            while (curr !is ContextLeaf) {
-                // always can go down in not leaf
-                curr = curr.downRightStep.go() ?: throw Exception("Can not go down from not ContextLeaf.")
-            }
-            
-            return curr
-        }
-    }
-    
-    
+    /** Defines navigation through the tree.
+     * Can go with typed filtersin some direction or generate sequences.
+     * @param ctx Initial point for step.*/
     abstract class Step(open val ctx: Context) {
         
-        /**One step in a given direction.*/
+        /**One step in a given direction. Should be overridden in concrete steps.*/
         protected abstract fun Context.oneStep(): Context?
         
         /** public wrapper of [oneStep]. Returns context of next step.*/
         open fun go(): Context? = ctx.oneStep()
                 .also { log?.println("after ${this::class.java.simpleName}: ${ctx} to $it") }
         
+        /** Lazy generation of list with elements in given direction.*/
         open fun asSequence() = Sequence<Context> {
             object : Iterator<Context> {
                 
@@ -238,7 +209,7 @@ abstract class Context(open val element: Element) {
             }
         }
         
-        /** Finds first with genericContext of type T.
+        /** Finds first context with genericContext of type [T].
          * @return a pair of found realized context and its genericContext, casted to T*/
         inline fun <reified T : GenericContext> goTyped(): Pair<Context, T>? {
             return asSequence()
@@ -246,14 +217,57 @@ abstract class Context(open val element: Element) {
                     ?.let { Pair(it, it.gContext as T) }
         }
         
-        
+        /** Combination of [asSequence] and [goTyped]*/
         inline fun <reified T : GenericContext> asTypedSequence() =
                 asSequence()
                         .filter { it.gContext is T }
                         .map { Pair(it, it.gContext as T) }
     }
     
+    override fun toString(): String {
+        return element.toString()
+    }
+}
+
+/** Extension of [Context] for [ElementLeaf]*/
+class ContextLeaf(override val element: ElementLeaf) : Context(element) {
+    val leftLeafStep: StepLeaf get() = LeftLeafStep(this)
+    val rightLeafStep: StepLeaf get() = RightLeafStep(this)
     
+    /** Finds first realized leaf on the right.
+     * Works only with leaves. Uses cashed [ElementLeaf.rightLeaf].*/
+    private class RightLeafStep(ctx: ContextLeaf) : StepLeaf(ctx) {
+        override fun Context.oneStep(): ContextLeaf? {
+            
+            return (this as? ContextLeaf)?.element?.rightLeaf?.context
+            
+        }
+    }
+    
+    /** Finds first realized leaf on the left. Uses cashed [ElementLeaf.rightLeaf].*/
+    private class LeftLeafStep(ctx: ContextLeaf) : StepLeaf(ctx) {
+        override fun Context.oneStep(): ContextLeaf? {
+            
+            // return saved leftLeaf!!!
+            return (this as? ContextLeaf)?.element?.leftLeaf?.context
+    
+//            var curr: Context = this
+//            // up
+//            while (curr.leftStep.go() == null) {
+//                curr = curr.upStep.go() ?: return null
+//            }
+//            // left
+//            curr = curr.leftStep.go()!!
+//            // down
+//            while (curr !is ContextLeaf) {
+//                // always can go down in not leaf
+//                curr = curr.downRightStep.go() ?: throw Exception("Can not go down from not ContextLeaf.")
+//            }
+//            return curr
+        }
+    }
+    
+    /** Extension of [Step] for [ContextLeaf]*/
     abstract class StepLeaf(override val ctx: ContextLeaf) : Step(ctx) {
         
         /**One step in a given direction.*/
@@ -275,18 +289,9 @@ abstract class Context(open val element: Element) {
         inline fun <reified T : GenericContext> asTypedSequenceLeaves() =
                 asTypedSequence<T>().map { Pair(it.first as ContextLeaf, it.second) }
     }
-    
-    override fun toString(): String {
-        return element.toString()
-    }
 }
 
-class ContextLeaf(override val element: ElementLeaf) : Context(element) {
-    val leftLeafStep: StepLeaf get() = LeftLeafStep(this)
-    val rightLeafStep: StepLeaf get() = RightLeafStep(this)
-    
-}
-
+/** Extension of [Context] for [ElementNode]*/
 class ContextNode(override val element: ElementNode) : Context(element) {
     
 }

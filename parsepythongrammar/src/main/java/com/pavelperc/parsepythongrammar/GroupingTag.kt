@@ -1,5 +1,7 @@
 package com.pavelperc.parsepythongrammar
 
+/** It is used for grouping [ButtonContent] by string [tag].
+ * Sorts different tags by [priority] with function [compareTo]*/
 data class GroupingTag(
         val tag: String,
         val color: Int,
@@ -8,7 +10,6 @@ data class GroupingTag(
 ) : Comparable<GroupingTag> {
     /**
      * Firstly compares [priority] in ascending order.
-     * 
      * Secondly compares string [tag] in alphabet order.
      * */
     override fun compareTo(other: GroupingTag) =

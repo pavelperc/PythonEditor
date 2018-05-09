@@ -2,6 +2,9 @@ package com.pavelperc.parsepythongrammar
 
 import java.util.*
 
+
+/** Console implementation of program interface for debug.
+ * It generates GraphViz trees after each step, using, [drawGv] function.*/
 class MainRuleConsole(
         gRule: GenericRule,
         ruleMap: Map<String, GenericRule>

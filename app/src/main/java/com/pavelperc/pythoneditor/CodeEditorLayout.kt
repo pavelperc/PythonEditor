@@ -243,7 +243,7 @@ class CodeEditorLayout(
                     }
                     
                 } catch (e: Exception) {
-                    activity.toast("Invalid input:\n${e.localizedMessage}")
+                    activity.longToast("Invalid input:\n${e.localizedMessage}")
                     return false
                 }
 
@@ -338,6 +338,8 @@ class CodeEditorLayout(
         val isFilled: Boolean
             get() = leaf.realizedToken != null
         
+        
+        private val hintButtons: List<ButtonQuickHint>? = null
         
         fun unlockEditing() {
             hint = " enter ${leaf.toString().toLowerCase()} "

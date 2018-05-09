@@ -11,16 +11,19 @@ import com.pavelperc.parsepythongrammar.RealizedRule.ElementLeaf
 //--------------------Generic contexts
 
 /**
- * Содержит реализацию основных действий контекста
+ * It and its subclasses contain implementation of main actions, depending on element type.
+ * It interacts with different elements via their [Context].
+ * When it receives some [Context] object it can work with semantics of the code:
+ * Put some data to [Context.storage], interact with neighbour nodes.
  */
 open class GenericContext(open val gElement: GenericElement) {
     
 }
 
-
+/** gContext for leaf elements*/
 open class GenericContextLeaf(override val gElement: GenericElementLeaf) : GenericContext(gElement) {
     
-    /** Called right after [ElementLeaf.updateAllChosen]*/
+    /** Should be invoked right after [ElementLeaf.updateAllChosen] when new element is chosen*/
     open fun onChoose(context: ContextLeaf) {}
 }
 
@@ -32,14 +35,15 @@ open class GenericContextLeaf(override val gElement: GenericElementLeaf) : Gener
  */
 open class GenericContextId(
         gElement: GenericElementLeaf,
-        /** If the lexeme behaves like a [ElementType.STRING],
+        /** When ID lexeme behaves like a [ElementType.STRING],
          * it has its own token, realized by default.*/
         open val defaultRealizedToken: String? = null
 ) : GenericContextLeaf(gElement) {
     
-    /** Если лексему нужно вводить вручную - проверяет подходит ли введённое слово для этой лексемы
-     * @param leaf Лист, у которого заполнен [ElementLeaf.realizedToken]*/
-    open fun checkPattern(value: String): Boolean = true
+    /** If the lexeme should be entered manually - checks if [value] suits for this lexeme.
+     *  @throws IllegalArgumentException with explanation, if [value] doesn't matches pattern.*/
+    @Throws(IllegalArgumentException::class)
+    open fun checkPattern(value: String): Unit {}
     
     
     /** List of hints. Should be already sorted.*/
@@ -47,6 +51,8 @@ open class GenericContextId(
     
 }
 
+/** Defines actions with NEWLINE like saving indent or dedent nodes in [Context.storage],
+ * calculating indent length with [getIndentCount]*/
 class GenericContextNewline(element: GenericElementLeaf) : GenericContextId(element) {
     
     companion object {
@@ -128,6 +134,7 @@ class GenericContextNewline(element: GenericElementLeaf) : GenericContextId(elem
     }
 }
 
+/** Defines behaviour of indents or dedents, namely, connecting to nearest newline token.*/
 class GenericContextIndentOrDedent(
         element: GenericElementLeaf,
         val isIndent: Boolean,
@@ -154,8 +161,11 @@ class GenericContextAssign(element: GenericElementLeaf) : GenericContextLeaf(ele
         val ctxName = context.leftLeafStep.go()
         val gCtxName = ctxName?.gContext
         
-        if (ctxName == null || gCtxName !is GenericContextName)
-            throw Exception("not found name before assign. found: $ctxName")
+        if (ctxName == null || gCtxName !is GenericContextName) {
+            log?.println("in onChoose for Assign: not found name before assign. found: $ctxName")
+//            throw Exception("not found name before assign. found: $ctxName")
+            return
+        }
         
         gCtxName.updateAssignmentInStmt(ctxName)
         
@@ -172,13 +182,17 @@ class GenericContextName(
         val colorForVar: Int
 ) : GenericContextId(element) {
     
-    private val defaultFuncs = listOf("print", "len", "int", "input", "float")
-    private val defaultVars = listOf("self", "lst", "result", "some_var")
+    companion object {
+        private val defaultFuncs = listOf("print", "input", "range", "len", "int", "float")
+        private val defaultVars = listOf("self", "lst", "answer", "some_var")
+    }
     
-    
-    override fun checkPattern(value: String): Boolean {
+    @Throws(IllegalArgumentException::class)
+    override fun checkPattern(value: String) {
         val regex = Regex("^[a-zA-Z_\$][a-zA-Z_\$0-9]*\$")
-        return value.matches(regex)
+        if (!value.matches(regex))
+            throw IllegalArgumentException("Name should contain only english letters or numbers " +
+                    "and not start from number.")
     }
     
     
@@ -197,6 +211,7 @@ class GenericContextName(
     ) : ButtonContent
     
     
+    /** Hints for NAME: last used variables and common functions*/
     override fun quickHints(ctx: Context): List<ButtonContent> {
         val funcTag = GroupingTag("func", colorForFunc, 2)
         val varTag = GroupingTag("var", colorForVar, 1)
@@ -205,8 +220,10 @@ class GenericContextName(
         val defFuncContent = defaultFuncs.map { ButtonContentImpl(funcTag, it) }
         val defVarContent = defaultVars.map { ButtonContentImpl(defVarTag, it) }
         
-        val varContent = getVariables(ctx).map { ButtonContentImpl(varTag, it) }
+        val varContent = getVariables(ctx)
                 .distinct()
+                .map { ButtonContentImpl(varTag, it) }
+                
         
         // JUST SORT MANUALLY BY PRIORITY
         return (varContent + defFuncContent + defVarContent)
@@ -247,9 +264,11 @@ class GenericContextName(
 /** Defines actions with numbers.*/
 class GenericContextNumber(element: GenericElementLeaf) : GenericContextId(element) {
     
-    override fun checkPattern(value: String): Boolean {
+    @Throws(IllegalArgumentException::class)
+    override fun checkPattern(value: String) {
         val regex = Regex("^[0-9]+\$")
-        return value.matches(regex)
+        if (!value.matches(regex))
+            throw IllegalArgumentException("Number should contain only digits.")
     }
 }
 
@@ -258,13 +277,15 @@ class GenericContextNumber(element: GenericElementLeaf) : GenericContextId(eleme
  */
 class GenericContextString(element: GenericElementLeaf) : GenericContextId(element) {
     
-    override fun checkPattern(value: String): Boolean {
-        val regex = Regex("^\".*\"$")
-        return value.matches(regex)
+    @Throws(IllegalArgumentException::class)
+    override fun checkPattern(value: String) {
+        val regex = Regex("^[\"\'].*[\"\']$")
+        if (!value.matches(regex))
+            throw IllegalArgumentException("String should contain single or double quotes.")
     }
 }
 
-
+/** Generic Context for stmt node*/
 class GenericContextStmt(element: GenericElement) : GenericContext(element) {
     
     private var Context.assigned: String?
@@ -314,10 +335,10 @@ class GenericContextStmt(element: GenericElement) : GenericContext(element) {
     }
 }
 
-class GenericContextExpr(gElement: GenericElement) : GenericContext(gElement) {
-    
-    fun collectLeft(context: Context) {
-        
-    }
-    
-}
+//class GenericContextExpr(gElement: GenericElement) : GenericContext(gElement) {
+//    
+//    fun collectLeft(context: Context) {
+//        
+//    }
+//    
+//}

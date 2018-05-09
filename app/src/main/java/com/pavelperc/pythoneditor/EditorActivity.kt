@@ -27,7 +27,7 @@ import android.support.v4.content.ContextCompat
 
 
 
-
+/** Main activity with editor.*/
 class EditorActivity : AppCompatActivity() {
     
     lateinit var mainRuleGraphics: MainRuleGraphics
@@ -100,11 +100,13 @@ class EditorActivity : AppCompatActivity() {
                     message = text
                     
                     
-                    yesButton {
+                    positiveButton("Save to downloads") {
                         saveToFile(text)
                     }
                     
-                    noButton { }
+                    negativeButton("Cancel") {
+                        it.cancel()
+                    }
                     
                 }.show()
                 
@@ -151,8 +153,7 @@ class EditorActivity : AppCompatActivity() {
             dir.mkdirs()
     
             file.writeText(text)
-    
-            longToast("Text saved to ${file.absolutePath}")
+            longToast("Text was saved to ${file.absolutePath}")
         } catch (e: Exception) {
             longToast("Exception: " + e.localizedMessage)
         }

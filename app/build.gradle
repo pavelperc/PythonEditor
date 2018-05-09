@@ -4,6 +4,8 @@ apply plugin: 'kotlin-android'
 
 apply plugin: 'kotlin-android-extensions'
 
+apply plugin: 'org.jetbrains.dokka'
+
 android {
     compileSdkVersion 25
     defaultConfig {
@@ -31,14 +33,36 @@ dependencies {
     androidTestImplementation 'com.android.support.test:runner:1.0.1'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
     implementation project(':parsepythongrammar')
-    
-    
+
+
     compile "org.jetbrains.anko:anko-commons:$anko_version"
     // Anko Layouts
-    compile "org.jetbrains.anko:anko-sdk25:$anko_version" // sdk15, sdk19, sdk21, sdk23 are also available
+    compile "org.jetbrains.anko:anko-sdk25:$anko_version"
+    // sdk15, sdk19, sdk21, sdk23 are also available
     compile "org.jetbrains.anko:anko-appcompat-v7:$anko_version"
 
     // Coroutine listeners for Anko Layouts
     compile "org.jetbrains.anko:anko-sdk25-coroutines:$anko_version"
     compile "org.jetbrains.anko:anko-appcompat-v7-coroutines:$anko_version"
+}
+
+//dokka {
+//    includeNonPublic = true
+//    reportUndocumented = false
+//
+////    sourceDirs = files('src/main/java')
+//}
+
+task dokka(overwrite: true, type: org.jetbrains.dokka.gradle.DokkaAndroidTask) {
+//    outputFormat = 'javadoc'
+    outputDirectory = "$buildDir/../../../dokka_app"
+
+    skipEmptyPackages = true
+    skipDeprecated = false
+
+    includeNonPublic = true
+    reportUndocumented = false
+
+    //No default documentation link to kotlin-stdlib
+    noStdlibLink = false
 }

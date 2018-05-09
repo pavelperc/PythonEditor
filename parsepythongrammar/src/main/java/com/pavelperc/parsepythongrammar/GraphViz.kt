@@ -7,6 +7,7 @@ import java.io.PrintWriter
  * Created by pavel on 02.04.2018.
  */
 
+/** Node for GraphViz*/
 class GVNode(
     val id: Int,
     var label: String = "n$id",
@@ -32,7 +33,7 @@ class GVNode(
     }
 }
 
-
+/** Edge for GraphViz*/
 class GVEdge(
     val first: GVNode,
     val second: GVNode,
@@ -49,6 +50,8 @@ class GVEdge(
     }
 }
 
+/** Used for creating visualized graph for GraphViz.
+ * Created graph is saved to [fileName] after calling method [writeToFile]*/
 class Graph(val fileName:String, val graphLabel: String = fileName, val fontsize: Int = 80) {
     
     private val nodes = mutableListOf<GVNode>()

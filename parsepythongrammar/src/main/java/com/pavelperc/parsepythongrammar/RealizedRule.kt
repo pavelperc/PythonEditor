@@ -516,17 +516,17 @@ open class RealizedRule(
         /**
          * Ищет все доступные для выбора простые элементы правее текущего.
          *
-         * Если [wantAlternatives] true - то по умолчанию считаем текущий элемент optional.
+         * Если [wantAlternatives] - true, то по умолчанию считаем текущий элемент optional.
          * А если false, то проверяем текущий элемент на [isOptional], когда хотим искать conc справа.
          *
-         * True нужен, например, если мы rightOptional, слева от нас есть реализованные, и мы идём по рекурсии наверх.
+         * True нужен, например, если мы rightOptional, слева от нас есть реализованные,
+         * и мы идём по рекурсии наверх.
          *
          * False нужен, чтобы мы не добавляли следующие conc, если мы не optional:
          * Например мы стоим в первом не optional conc.
          * @return список всех элементов вместе с текущим, если он простой
          */
         fun findAlternativesUp(wantAlternatives: Boolean): List<ElementLeaf> {
-            //            System.out.println("findAlternativesUp(" + wantAlternatives + ") in " + gElement + " : " + getThisRule().gRule.id);
             log?.println("findAlternativesUp($wantAlternatives) in $gElement")
             
             val alternatives = mutableListOf<ElementLeaf>()
@@ -562,13 +562,13 @@ open class RealizedRule(
             
             
             // рекурсия вверх
-            fatherElement?.apply {
+            fatherElement?.also {
                 if (rightOptional) {
                     // не проверяем, что мы optional
-                    alternatives.addAll(findAlternativesUp(true))
+                    alternatives.addAll(it.findAlternativesUp(true))
                 } else {
                     // проверяем, что мы optional
-                    alternatives.addAll(findAlternativesUp(false))
+                    alternatives.addAll(it.findAlternativesUp(false))
                 }
             }
             
@@ -693,28 +693,29 @@ open class RealizedRule(
             get() = gElement.groupingTag
         
         /** Подходящая string или выбранное значения для lexer id.
-         * То есть отдельное слово созданной программы на питоне.  */
+         * То есть отдельное слово созданной программы на питоне.
+         * @throws IllegalArgumentException if [GenericContextId.checkPattern] failed.*/
         var realizedToken: String? = null
             get() =
                 if (gElement.isString)
                     gElement.text
                 else
                     field
+            @Throws(IllegalArgumentException::class)
             set(value) {
                 if (value == null)
-                    throw Exception("can not assign null to realizedToken.")
+                    throw IllegalArgumentException("Can not assign null to realizedToken.")
                 
-                if (gContext is GenericContextId
-                        && !(gContext as GenericContextId).checkPattern(value))
-                    throw Exception("invalid token")
+                (gContext as? GenericContextId)
+                        ?.apply { checkPattern(value) }
                 
                 field = value
             }
         
         var leftLeaf: ElementLeaf? = null
         var rightLeaf: ElementLeaf? = null
-        
-        
+
+
 //        var onUpdateRealizedToken: (()->Unit)? = null
         
     }
@@ -728,9 +729,9 @@ open class RealizedRule(
             val isParserRuleId: Boolean
     ) :
             Element(gElement, father, positionInFather) {
-    
+        
         override val context = ContextNode(this)
-    
+        
         val alteration: Alteration
         private val rule: RealizedRule?
         

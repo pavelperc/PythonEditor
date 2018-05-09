@@ -61,7 +61,15 @@ object MyVisitor {
         
     }
     
-    
+    /**
+     * Replaces all rules with groups if they occur only once.
+     * Removes unused rules.
+     * And simplifies groups like this:
+     * 
+     * (a | b) | c -> a | b | c
+     *
+     * (a | b) c* -> a c* | b c*
+     */
     fun optimizeRuleMap(ruleMap: MutableMap<String, GenericRule>) {
         
         val usagesMap = mutableMapOf<GenericRule, Int>()
