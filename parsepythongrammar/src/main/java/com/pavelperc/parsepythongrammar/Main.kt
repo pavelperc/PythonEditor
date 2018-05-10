@@ -230,7 +230,7 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
             GroupingTag("number", Palette.Pink.color, 1),// number
             GroupingTag("assign", Palette.Yellow.color, 1),
             GroupingTag("newline", Palette.White.color, 1),// newline, indent, dedent
-            GroupingTag("func_arg", Palette.Blue.color, 3)// (arg, arg, arg) [ ] .NAME
+            GroupingTag(GroupingTag.FUNC_ARG_TAG, Palette.Blue.color, 3)// (arg, arg, arg) [ ] .NAME
     )
             .map { Pair(it.tag, it) }
             .toMap()
@@ -278,7 +278,7 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
             .plus(ruleMap["classdef"]!!.leaves)
             .filterNot { it.text == "NAME" || it.text == ":" }
             .filterNot { it.checkById(593, ",") }// remove comma after last argument
-            .forEach { it.groupingTag = tags["func_arg"]!! }
+            .forEach { it.groupingTag = tags[GroupingTag.FUNC_ARG_TAG]!! }
     
     
     

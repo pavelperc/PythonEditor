@@ -23,5 +23,10 @@ data class GroupingTag(
         /*ltGray*/
         val defaultColor = -0x333334
         val defaultTag = GroupingTag("no_tag", defaultColor, 10)
+        
+        
+        /** It is set to ',' '(' ')' '[' ']' '.' in function and classdef.
+         * And it is used for addParenthesesForFunction in CodeEditorLayout.*/
+        const val FUNC_ARG_TAG = "func_arg"
     }
 }

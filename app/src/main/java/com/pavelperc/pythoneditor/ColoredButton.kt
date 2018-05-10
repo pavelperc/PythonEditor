@@ -9,14 +9,13 @@ import android.widget.LinearLayout
 import com.pavelperc.parsepythongrammar.ButtonContent
 import org.jetbrains.anko.*
 
-/** Button, generated from [content] with name and color.
- * The tag value contains [content]*/
+/** Button, generated from [content] with text and color.*/
 abstract class ColoredButton(val content: ButtonContent, activity: Activity)
     : Button(activity), View.OnClickListener {
     
     init {
         // assign content to tag
-        tag = content
+//        tag = content
         
         // lparams for button
         val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)

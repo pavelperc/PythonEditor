@@ -12,6 +12,7 @@ import com.pavelperc.parsepythongrammar.*
 import com.pavelperc.parsepythongrammar.RealizedRule.ElementLeaf
 import kotlinx.android.synthetic.main.activity_editor.*
 import org.jetbrains.anko.*
+import kotlin.concurrent.thread
 
 
 /**
@@ -69,7 +70,7 @@ class CodeEditorLayout(
      * [prevView] is either [TokenEditText] or [TextViewBeforeFirst].
      * [layout] must contain [prevView].
      *
-     * This method NOT calls [MainRuleGraphics.findAlternatives] in separate thread.*/
+     * This method DOES NOT calls [MainRuleGraphics.findAlternatives] in separate thread.*/
     fun changeCursor(prevView: View, layout: LineLayout) {
         
         mainRuleGraphics.cursor = if (prevView is TokenEditText) prevView.leaf else null
@@ -90,8 +91,12 @@ class CodeEditorLayout(
     }
     
     
-    /** Should be invoked in UI thread.*/
-    fun addToken(leaf: ElementLeaf) {
+    /** Should be invoked in UI thread.
+     * @param noBuildAndFind if it is true -
+     * we don't call [MainRuleGraphics.build] and [MainRuleGraphics.findAlternatives].
+     * But if the token must be manually entered, Build and Find will be invoked in [TokenEditText]
+     * */
+    fun addToken(leaf: ElementLeaf, noBuildAndFind: Boolean = false) {
         
         // if text realized token exists or can be entered automatically et fills itself with it
         // else enables editing mode.
@@ -103,9 +108,10 @@ class CodeEditorLayout(
         // adding new layout for new line
         
         if (leaf.gContext is GenericContextNewline) {
-            
-            mainRuleGraphics.build(mainRuleGraphics.trueCursor, leaf)
-            etToken.updateRealizedToken()
+            if (!noBuildAndFind) {
+                mainRuleGraphics.build(mainRuleGraphics.trueCursor, leaf)
+                etToken.updateRealizedToken()
+            }
             
             val newLineLayout = LineLayout()
             newLineLayout.addView(etToken)
@@ -114,9 +120,11 @@ class CodeEditorLayout(
             leafToLL[leaf] = newLineLayout
             changeCursor(etToken, newLineLayout)
             
-            Thread() {
-                mainRuleGraphics.findAlternatives()
-            }.start()
+            if (!noBuildAndFind) {
+                thread {
+                    mainRuleGraphics.findAlternatives()
+                }
+            }
             
         } else {
             cursorLayout.addView(etToken, cursorPosition + 1)
@@ -128,19 +136,20 @@ class CodeEditorLayout(
             val savedTrueCursor = mainRuleGraphics.trueCursor
             changeCursor(etToken, cursorLayout)
             
-            if (etToken.isFilled) {
-                
+            if (etToken.isFilled && !noBuildAndFind) {
                 // TODO simplify savedTrueCursor and methods changeCursor, build
-                Thread() {
+                thread {
                     mainRuleGraphics.build(savedTrueCursor, leaf)
                     mainRuleGraphics.findAlternatives()
-                }.start()
+                }
             }
             // else wait until user enters the text 
             // and call build and findAlternatives in onTokenTextEnter
         }
     }
     
+    /** Just synchronizes [ElementLeaf.realizedToken] and [TokenEditText.setText]
+     * for token at [MainRuleGraphics.cursor] (visible cursor, not [MainRuleGraphics.trueCursor]*/
     fun updateTextBeforeCursor() {
         val cursorLeaf = mainRuleGraphics.cursor
                 ?: throw Exception("no leaf at cursor position in updateTextBeforeCursor")
@@ -223,6 +232,35 @@ class CodeEditorLayout(
             return true
         }
         
+        
+        /** It is called when we want apply entered text in editor.
+         * It doesn't call any [MainRuleGraphics.build] or [MainRuleGraphics.findAlternatives].
+         * It just tries to apply text to [ElementLeaf.realizedToken]
+         * AND CALLS [lockEditing] FOR THIS etToken. (if succeed)
+         * @return true if succeed.*/
+        private fun applyNewText(): Boolean {
+            try {
+                leaf.realizedToken = text.toString()
+                
+                // if we entered the name first time nothing will happen.
+                // But if we are in change mode - update... will find '=' on the right 
+                // and will update the storage of stmt above
+                if (leaf.gContext is GenericContextName) {
+                    // TODO simplify calling updateAssignmentInStmt
+                    (leaf.gContext as GenericContextName).updateAssignmentInStmt(leaf.context)
+                }
+            } catch (e: Exception) {
+                activity.longToast("Invalid input:\n${e.localizedMessage}")
+                return false
+            }
+
+//                activity.toast("Successful input")
+            
+            lockEditing()
+            return true
+        }
+        
+        
         /** Handles enter key press on keyboard after editing a token.*/
         override fun onEditorAction(v: TextView?, actionId: Int, event: KeyEvent?): Boolean {
             if (actionId == EditorInfo.IME_ACTION_GO
@@ -232,30 +270,16 @@ class CodeEditorLayout(
                     || actionId == EditorInfo.IME_ACTION_SEARCH
                     || (event?.action == KeyEvent.KEYCODE_ENTER)) {
                 
-                try {
-                    leaf.realizedToken = text.toString()
-                    
-                    // if we entered the name first time nothing will happen.
-                    // But if we are in change mode - update... will find '=' on the right 
-                    // and will update the storage of stmt above
-                    if (leaf.gContext is GenericContextName) {
-                        (leaf.gContext as GenericContextName).updateAssignmentInStmt(leaf.context)
-                    }
-                    
-                } catch (e: Exception) {
-                    activity.longToast("Invalid input:\n${e.localizedMessage}")
+                // lockEditing is inside
+                if (!applyNewText()) {
                     return false
                 }
-
-//                activity.toast("Successful input")
                 
                 Thread() {
                     mainRuleGraphics.build(leftLeaf, leaf)
                     mainRuleGraphics.findAlternatives()
                 }.start()
                 
-                
-                lockEditing()
                 
                 return true
             } else {
@@ -359,8 +383,8 @@ class CodeEditorLayout(
                 inputType = InputType.TYPE_TEXT_VARIATION_SHORT_MESSAGE
             }
             
-            if (leaf.gElement.text == "STRING") {
-                setText("\"\"")
+            if (leaf.gElement.text == "STRING" && text.isEmpty()) {
+                setText("''")
                 setSelection(1)
             }
             
@@ -392,7 +416,67 @@ class CodeEditorLayout(
             override fun onClick(v: View?) {
                 this@TokenEditText.setText(content.nameForButton)
                 
-                onEditorAction(null, EditorInfo.IME_ACTION_GO, null)
+                if (content.groupingTagForButton.tag == GenericContextName.FUNC_HINT_TAG) {
+                    addParenthesesForFunction()
+                } else {
+                    onEditorAction(null, EditorInfo.IME_ACTION_GO, null)
+                }
+            }
+            
+            
+            fun addParenthesesForFunction() {
+                // name of func for autocomplete
+                val nameLeaf = this@TokenEditText.leaf
+                
+                // if entered by user (or chosen among hints) function is incorrect.
+                // (failed assigning to realizedToken)
+                // break current function.
+                if (!applyNewText())
+                    return
+                
+                thread {
+                    // building current name
+                    mainRuleGraphics.build(leftLeaf, nameLeaf)
+                    
+                    // finding opening parenthesis
+                    
+                    val openingPar = mainRuleGraphics
+                            .findAlternativesAndReturn()
+                            .firstOrNull {
+                                it.groupingTagForButton.tag == GroupingTag.FUNC_ARG_TAG
+                                        && it.gElement.text == "("
+                            } ?: return@thread
+                    
+                    mainRuleGraphics.build(nameLeaf, openingPar)
+                    
+                    activity.runOnUiThread {
+                        // moving cursor inside
+                        addToken(openingPar, true)
+                        
+                        // after we have moved cursor
+                        thread inner@{
+                            // finding closing parenthesis
+                            val closingPar = mainRuleGraphics
+                                    .findAlternativesAndReturn()
+                                    .firstOrNull {
+                                        it.groupingTagForButton.tag == GroupingTag.FUNC_ARG_TAG
+                                                && it.gElement.text == ")"
+                                    } ?: return@inner
+                            
+                            mainRuleGraphics.build(openingPar, closingPar)
+                            
+                            activity.runOnUiThread {
+                                addToken(closingPar, true)
+                                
+                                // moving cursor back
+                                changeCursor(leafToEt[openingPar]!!, leafToLL[openingPar]!!)
+                                // find alternatives in normal way: with buttons
+                                mainRuleGraphics.findAlternatives()
+                            }
+                        }
+                    }
+                    
+                }
             }
         }
         

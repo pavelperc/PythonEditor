@@ -69,6 +69,11 @@ class MainRuleConsole(
         gvFileCounter++
     }
     
+//    /** For now console autocompletion just invokes ask with one element.*/
+//    override fun autoChoose(leaf: ElementLeaf) {
+//        ask(listOf(leaf))
+//    }
+    
     /** Вывод всех альтернатив и выбор одной*/
     override fun ask(alternatives: List<ElementLeaf>) {
         val alternatives = alternatives.sortedBy { it.groupingTagForButton }

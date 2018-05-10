@@ -185,6 +185,8 @@ class GenericContextName(
     companion object {
         private val defaultFuncs = listOf("print", "input", "range", "len", "int", "float")
         private val defaultVars = listOf("self", "lst", "answer", "some_var")
+        
+        const val FUNC_HINT_TAG = "func"
     }
     
     @Throws(IllegalArgumentException::class)
@@ -213,7 +215,7 @@ class GenericContextName(
     
     /** Hints for NAME: last used variables and common functions*/
     override fun quickHints(ctx: Context): List<ButtonContent> {
-        val funcTag = GroupingTag("func", colorForFunc, 2)
+        val funcTag = GroupingTag(FUNC_HINT_TAG, colorForFunc, 2)
         val varTag = GroupingTag("var", colorForVar, 1)
         val defVarTag = GroupingTag.defaultTag
         
