@@ -240,8 +240,11 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
     // spread tags concretely to the leaves of the rules
     
     ruleMap["augassign"]!!.setGroupingTag(tags["augassign"]!!)
-    ruleMap["comp_op"]!!.setGroupingTag(tags["comp_op"]!!)
     
+    // to avoid conflict with 'not' in comp_op
+    ruleMap["or_test"]!!.setGroupingTag(tags["bool_op"]!!)
+    ruleMap["and_test"]!!.setGroupingTag(tags["bool_op"]!!)
+    ruleMap["not_test"]!!.setGroupingTag(tags["bool_op"]!!)
     
     ruleMap["term"]!!.setGroupingTag(tags["sign_op"]!!)
     ruleMap["arith_expr"]!!.setGroupingTag(tags["sign_op"]!!)
@@ -270,6 +273,8 @@ fun setupFullGrammar(grammar: String, optimizeRules: Boolean = true, drawGV: Boo
     
     
     // continue spreading tags on concrete rules
+    
+    ruleMap["comp_op"]!!.setGroupingTag(tags["comp_op"]!!)
     
     
     // set ',' '(' ')' '[' ']' '.' in function and classdef as func_arg

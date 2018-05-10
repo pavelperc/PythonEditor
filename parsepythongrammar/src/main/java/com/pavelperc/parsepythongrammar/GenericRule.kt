@@ -43,11 +43,7 @@ class GenericRule(
     
     /** Spreads grouping tag to all leaves of this generic rule*/
     fun setGroupingTag(tag: GroupingTag) {
-        gAlteration.gConcatenations.forEach {
-            it.gRepetitions.forEach {
-                it.gElement.groupingTag = tag
-            }
-        }
+        leaves.forEach { it.groupingTag = tag }
     }
 
 //------------ nested Classes:
