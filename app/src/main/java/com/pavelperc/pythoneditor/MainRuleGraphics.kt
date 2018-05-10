@@ -98,10 +98,10 @@ class MainRuleGraphics(
         
         val ll = chunkButtons(buttons)
         
-        activity.runOnUiThread {
+//        activity.runOnUiThread {
             activity.llButtons.removeAllViews()
             activity.llButtons.addView(ll)
-        }
+//        }
     }
     
     /** Button for interactive keyboard.*/

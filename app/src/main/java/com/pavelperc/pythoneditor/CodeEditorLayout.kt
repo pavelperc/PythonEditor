@@ -121,9 +121,9 @@ class CodeEditorLayout(
             changeCursor(etToken, newLineLayout)
             
             if (!noBuildAndFind) {
-                thread {
+//                thread {
                     mainRuleGraphics.findAlternatives()
-                }
+//                }
             }
             
         } else {
@@ -138,10 +138,10 @@ class CodeEditorLayout(
             
             if (etToken.isFilled && !noBuildAndFind) {
                 // TODO simplify savedTrueCursor and methods changeCursor, build
-                thread {
+//                thread {
                     mainRuleGraphics.build(savedTrueCursor, leaf)
                     mainRuleGraphics.findAlternatives()
-                }
+//                }
             }
             // else wait until user enters the text 
             // and call build and findAlternatives in onTokenTextEnter
@@ -209,7 +209,7 @@ class CodeEditorLayout(
                 return
             
             changeCursor(this, leafToLL[leaf]!!)
-            Thread() {
+//            thread {
                 try {
                     mainRuleGraphics.findAlternatives()
                 } catch (e: Exception) {
@@ -217,7 +217,7 @@ class CodeEditorLayout(
                         activity.longToast("failed to findAlternatives in onTokenClick.\nCursor = ${mainRuleGraphics.cursor}")
                     }
                 }
-            }.start()
+//            }
         }
         
         override fun onLongClick(v: View?): Boolean {
@@ -275,10 +275,10 @@ class CodeEditorLayout(
                     return false
                 }
                 
-                Thread() {
+//                thread {
                     mainRuleGraphics.build(leftLeaf, leaf)
                     mainRuleGraphics.findAlternatives()
-                }.start()
+//                }
                 
                 
                 return true
@@ -424,7 +424,7 @@ class CodeEditorLayout(
             }
             
             
-            fun addParenthesesForFunction() {
+            private fun addParenthesesForFunction() {
                 // name of func for autocomplete
                 val nameLeaf = this@TokenEditText.leaf
                 
@@ -434,49 +434,40 @@ class CodeEditorLayout(
                 if (!applyNewText())
                     return
                 
-                thread {
-                    // building current name
-                    mainRuleGraphics.build(leftLeaf, nameLeaf)
-                    
-                    // finding opening parenthesis
-                    
-                    val openingPar = mainRuleGraphics
-                            .findAlternativesAndReturn()
-                            .firstOrNull {
-                                it.groupingTagForButton.tag == GroupingTag.FUNC_ARG_TAG
-                                        && it.gElement.text == "("
-                            } ?: return@thread
-                    
-                    mainRuleGraphics.build(nameLeaf, openingPar)
-                    
-                    activity.runOnUiThread {
-                        // moving cursor inside
-                        addToken(openingPar, true)
-                        
-                        // after we have moved cursor
-                        thread inner@{
-                            // finding closing parenthesis
-                            val closingPar = mainRuleGraphics
-                                    .findAlternativesAndReturn()
-                                    .firstOrNull {
-                                        it.groupingTagForButton.tag == GroupingTag.FUNC_ARG_TAG
-                                                && it.gElement.text == ")"
-                                    } ?: return@inner
-                            
-                            mainRuleGraphics.build(openingPar, closingPar)
-                            
-                            activity.runOnUiThread {
-                                addToken(closingPar, true)
-                                
-                                // moving cursor back
-                                changeCursor(leafToEt[openingPar]!!, leafToLL[openingPar]!!)
-                                // find alternatives in normal way: with buttons
-                                mainRuleGraphics.findAlternatives()
-                            }
-                        }
-                    }
-                    
-                }
+                // building current name
+                mainRuleGraphics.build(leftLeaf, nameLeaf)
+                
+                // finding opening parenthesis
+                
+                val openingPar = mainRuleGraphics
+                        .findAlternativesAndReturn()
+                        .firstOrNull {
+                            it.groupingTagForButton.tag == GroupingTag.FUNC_ARG_TAG
+                                    && it.gElement.text == "("
+                        } ?: return
+                
+                mainRuleGraphics.build(nameLeaf, openingPar)
+                
+                // moving cursor inside
+                addToken(openingPar, true)
+                
+                // after we have moved cursor
+                // finding closing parenthesis
+                val closingPar = mainRuleGraphics
+                        .findAlternativesAndReturn()
+                        .firstOrNull {
+                            it.groupingTagForButton.tag == GroupingTag.FUNC_ARG_TAG
+                                    && it.gElement.text == ")"
+                        } ?: return
+                
+                mainRuleGraphics.build(openingPar, closingPar)
+                
+                addToken(closingPar, true)
+                
+                // moving cursor back
+                changeCursor(leafToEt[openingPar]!!, leafToLL[openingPar]!!)
+                // find alternatives in normal way: with buttons
+                mainRuleGraphics.findAlternatives()
             }
         }
         

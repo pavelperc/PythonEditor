@@ -24,7 +24,7 @@ import java.io.InputStreamReader
 import android.support.v4.app.ActivityCompat
 import android.content.pm.PackageManager
 import android.support.v4.content.ContextCompat
-
+import kotlin.concurrent.thread
 
 
 /** Main activity with editor.*/
@@ -57,7 +57,8 @@ class EditorActivity : AppCompatActivity() {
 
 //        hsvCode.minimumHeight = svCode.height
         
-        Thread() {
+        // Initial setup in other thread
+        thread(isDaemon = true) {
             val inputStream = resources.openRawResource(R.raw.full_grammar)
             val reader = BufferedReader(InputStreamReader(inputStream))
             
@@ -71,12 +72,10 @@ class EditorActivity : AppCompatActivity() {
             
             runOnUiThread {
                 llCode.addView(mainRuleGraphics.codeEditorLayout)
+                mainRuleGraphics.findAlternatives()
             }
             
-            mainRuleGraphics.findAlternatives()
         }
-                .apply { isDaemon = true }
-                .start()
         
     }
     
