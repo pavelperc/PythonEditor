@@ -1,7 +1,9 @@
 package com.pavelperc.pythoneditor
 
 import android.graphics.Color
+import android.text.Editable
 import android.text.InputType
+import android.text.TextWatcher
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -122,7 +124,7 @@ class CodeEditorLayout(
             
             if (!noBuildAndFind) {
 //                thread {
-                    mainRuleGraphics.findAlternatives()
+                mainRuleGraphics.findAlternatives()
 //                }
             }
             
@@ -139,8 +141,8 @@ class CodeEditorLayout(
             if (etToken.isFilled && !noBuildAndFind) {
                 // TODO simplify savedTrueCursor and methods changeCursor, build
 //                thread {
-                    mainRuleGraphics.build(savedTrueCursor, leaf)
-                    mainRuleGraphics.findAlternatives()
+                mainRuleGraphics.build(savedTrueCursor, leaf)
+                mainRuleGraphics.findAlternatives()
 //                }
             }
             // else wait until user enters the text 
@@ -203,6 +205,8 @@ class CodeEditorLayout(
      * @param leftLeaf Is needed for late build in [onEditorAction]*/
     inner class TokenEditText(val leaf: ElementLeaf, private val leftLeaf: ElementLeaf?)
         : EditText(activity), OnClickListener, OnLongClickListener, TextView.OnEditorActionListener {
+    
+        private val hintButtons: MutableList<ButtonQuickHint> = mutableListOf()
         
         override fun onClick(v: View?) {
             if (inEditMode)
@@ -210,13 +214,13 @@ class CodeEditorLayout(
             
             changeCursor(this, leafToLL[leaf]!!)
 //            thread {
-                try {
-                    mainRuleGraphics.findAlternatives()
-                } catch (e: Exception) {
-                    activity.runOnUiThread {
-                        activity.longToast("failed to findAlternatives in onTokenClick.\nCursor = ${mainRuleGraphics.cursor}")
-                    }
-                }
+            try {
+                mainRuleGraphics.findAlternatives()
+            } catch (e: Exception) {
+//                    activity.runOnUiThread {
+                activity.longToast("failed to findAlternatives in onTokenClick.\nCursor = ${mainRuleGraphics.cursor}")
+//                    }
+            }
 //            }
         }
         
@@ -261,8 +265,9 @@ class CodeEditorLayout(
         }
         
         
-        /** Handles enter key press on keyboard after editing a token.*/
+        /** Handles any key press on keyboard.*/
         override fun onEditorAction(v: TextView?, actionId: Int, event: KeyEvent?): Boolean {
+            //handle enter key after editing a token.
             if (actionId == EditorInfo.IME_ACTION_GO
                     || actionId == EditorInfo.IME_ACTION_DONE
                     || actionId == EditorInfo.IME_ACTION_NEXT
@@ -274,26 +279,43 @@ class CodeEditorLayout(
                 if (!applyNewText()) {
                     return false
                 }
-                
+
 //                thread {
-                    mainRuleGraphics.build(leftLeaf, leaf)
-                    mainRuleGraphics.findAlternatives()
+                mainRuleGraphics.build(leftLeaf, leaf)
+                mainRuleGraphics.findAlternatives()
 //                }
                 
                 
                 return true
             } else {
                 
-                // TODO filter inappropriate hints after key entering or return them back on backspace
-//                val forRemoval = activity.llQuickHints.childrenSequence()
-//                        .map { it as ButtonQuickHint }
-//                        .filterNot { it.content.nameForButton.startsWith(this.text) }
-//                forRemoval.forEach { activity.llQuickHints.r }
-                
+                return false
             }
-            return false
         }
         
+        /** Is called after any change of text*/
+        private fun afterTextChanged(s: Editable?) {
+            if (!inEditMode)
+                return
+            if (hintButtons.size == 0)
+                return
+            
+            val inputText = this@TokenEditText.text.toString()
+    
+            val filtered = hintButtons
+                    .filter { btn -> btn.content.nameForButton.startsWith(inputText) }
+    
+            
+            // Assume that any added or deleted key changes the number of filtered
+            if (activity.llQuickHints.childCount == filtered.size)
+                return
+            
+            activity.llQuickHints.removeAllViews()
+            filtered.forEach { activity.llQuickHints.addView(it) }
+    
+//            activity.toast("in afterTextChanged changed list")
+            
+        }
         
         private val savedKeyListener = keyListener
 //        private val savedBackground = background
@@ -325,6 +347,16 @@ class CodeEditorLayout(
             setOnClickListener(this)
             setOnEditorActionListener(this)
             
+            addTextChangedListener(object: TextWatcher {
+                override fun afterTextChanged(s: Editable?) {
+                    this@TokenEditText.afterTextChanged(s)
+                }
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+                }
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                }
+            })
+            
             
             nextFocusUpId = this.id
             nextFocusDownId = this.id
@@ -350,20 +382,16 @@ class CodeEditorLayout(
             setText(leaf.realizedToken)
         }
         
+        
         /** true after [unlockEditing] has been called
          * and false after [lockEditing] has been called*/
         var inEditMode = false
-            private set(value) {
-                field = value
-            }
+            private set
         
         
         /** Checks if any text in [ElementLeaf.realizedToken] has been entered.*/
         val isFilled: Boolean
             get() = leaf.realizedToken != null
-        
-        
-        private val hintButtons: List<ButtonQuickHint>? = null
         
         fun unlockEditing() {
             hint = " enter ${leaf.toString().toLowerCase()} "
@@ -376,7 +404,7 @@ class CodeEditorLayout(
 //            backgroundColor = leaf.groupingTagForButton.color
             
             
-            // SETTING UP THE INPUT TYPE OF THE KEYBOARD
+            // SETTING UP INPUT TYPE OF THE KEYBOARD
             if (leaf.gElement.text == "NUMBER") {
                 inputType = InputType.TYPE_CLASS_NUMBER
             } else {
@@ -391,11 +419,13 @@ class CodeEditorLayout(
             requestFocus()
             
             activity.llQuickHints.removeAllViews()
+            hintButtons.clear()
             
             val gContext = leaf.gContext
             if (gContext is GenericContextId) {
-                val buttons = gContext.quickHints(leaf.context).map { ButtonQuickHint(it) }
-                buttons.forEach { activity.llQuickHints.addView(it) }
+                hintButtons += gContext.quickHints(leaf.context).map { ButtonQuickHint(it) }
+                
+                hintButtons.forEach { activity.llQuickHints.addView(it) }
             }
             
             

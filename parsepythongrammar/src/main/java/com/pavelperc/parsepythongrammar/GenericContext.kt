@@ -184,7 +184,7 @@ class GenericContextName(
     
     companion object {
         private val defaultFuncs = listOf("print", "input", "range", "len", "int", "float")
-        private val defaultVars = listOf("self", "lst", "answer", "some_var")
+        private val defaultVars = listOf("self", "lst", "answer", "result", "number", "str")
         
         const val FUNC_HINT_TAG = "func"
     }
@@ -217,15 +217,19 @@ class GenericContextName(
     override fun quickHints(ctx: Context): List<ButtonContent> {
         val funcTag = GroupingTag(FUNC_HINT_TAG, colorForFunc, 2)
         val varTag = GroupingTag("var", colorForVar, 1)
-        val defVarTag = GroupingTag.defaultTag
+        val defVarTag = GroupingTag.defaultTag// grey
         
         val defFuncContent = defaultFuncs.map { ButtonContentImpl(funcTag, it) }
-        val defVarContent = defaultVars.map { ButtonContentImpl(defVarTag, it) }
         
-        val varContent = getVariables(ctx)
-                .distinct()
+        // declared earlier vars
+        val varsSet = getVariables(ctx).toSet()
+        val varContent = varsSet
+                .toList()
                 .map { ButtonContentImpl(varTag, it) }
-                
+        
+        val defVarContent = defaultVars
+                .filterNot { it in varsSet }// remove defaultVars, repeating declared vars
+                .map { ButtonContentImpl(defVarTag, it) }
         
         // JUST SORT MANUALLY BY PRIORITY
         return (varContent + defFuncContent + defVarContent)

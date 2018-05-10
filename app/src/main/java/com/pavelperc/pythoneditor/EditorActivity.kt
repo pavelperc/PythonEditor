@@ -139,7 +139,7 @@ class EditorActivity : AppCompatActivity() {
 //            }
 //        }
     
-    private fun saveToFile(text: String, filename: String = "MY_PROGRAM.py") {
+    private fun saveToFile(text: String, filename: String = "my_program.py") {
         
          // Get the directory for the app's private pictures directory.
 //        val file = File(getExternalFilesDir(""), filename)
@@ -191,7 +191,7 @@ class EditorActivity : AppCompatActivity() {
             svCode.postDelayed({
                 svCode.fullScroll(ScrollView.FOCUS_DOWN)
             }, 100)
-        }, 250)
+        }, 300)
     }
     
     /** Shows keyboard and hides buttons.*/
